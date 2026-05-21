@@ -36,7 +36,7 @@ void setup() {
   pinMode(PHOTO_PIN_2, INPUT);
 
   FastLED.addLeds<WS2812B, LED_RING_PIN, GRB>(leds, NUM_RING_LEDS);
-  FastLED.setBrightness(200);
+  FastLED.setBrightness(200);  // global brightness cap for all effects
   FastLED.clear(true);
 
   espNowHelper.begin(DEVICE_ID);
@@ -73,29 +73,39 @@ void renderIdleEffect() {
   static uint8_t twinkleBrightness = 0;
   static unsigned long nextTwinkleAt = 0;
 
+  // Silent phase state
+  static unsigned long silentUntil = 0;
+
+  unsigned long now = millis();
+
+  // Silent phase: all LEDs off until the timer expires
+  if (now < silentUntil) {
+    fill_solid(leds, NUM_RING_LEDS, CRGB::Black);
+    return;
+  }
+
   // Advance breath every 4 ticks (~80 ms per step; full cycle ~6 s)
   static uint8_t breathTick = 0;
   if (++breathTick >= 4) {
     breathTick = 0;
     breathBrightness += breathDir;
-    if (breathBrightness >= 40)
+    if (breathBrightness >= IDLE_MAX_BRIGHTNESS)
       breathDir = -1;
     if (breathBrightness <= 2) {
       breathDir = 1;
       // Shift one LED clockwise when the pulse bottoms out
-      ringOffset = (ringOffset + 1) % 3;
+      ringOffset = (ringOffset + 1) % (NUM_RING_LEDS / IDLE_LED_COUNT);
     }
   }
 
   // Base colour: dim cool blue on every 3rd LED only (8 of 24), rotated by offset
   CRGB base = CRGB(0, breathBrightness / 5, breathBrightness);
   fill_solid(leds, NUM_RING_LEDS, CRGB::Black);
-  for (uint8_t i = ringOffset; i < NUM_RING_LEDS; i += 3) {
+  for (uint8_t i = ringOffset; i < NUM_RING_LEDS; i += (NUM_RING_LEDS / IDLE_LED_COUNT)) {
     leds[i] = base;
   }
 
   // Schedule next twinkle when none is running
-  unsigned long now = millis();
   // Seed the first twinkle with a delay so it doesn't fire on frame 0
   if (nextTwinkleAt == 0)
     nextTwinkleAt = now + random16(2000, 5000);
@@ -111,6 +121,9 @@ void renderIdleEffect() {
     twinkleBrightness = scale8(twinkleBrightness, 210);
     if (twinkleBrightness < 4) {
       twinkleLed = 255;
+      // Enter silent phase; nextTwinkleAt will be re-seeded when silence ends
+      silentUntil = now + IDLE_SILENT_DURATION_MS;
+      nextTwinkleAt = 0;
     }
   }
 }
