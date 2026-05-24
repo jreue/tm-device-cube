@@ -52,6 +52,7 @@ void loop() {
       break;
     case STATE_CALIBRATED:
       renderCalibratedEffect();
+      notifyHub();
       break;
   }
 

@@ -3,7 +3,7 @@
 // ====================
 // This Devices Configuration
 // ====================
-#define DEVICE_ID 107
+#define DEVICE_ID 103
 
 #define NUM_RING_LEDS 24
 #define LED_RING_PIN 32
